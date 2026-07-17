@@ -21,8 +21,9 @@ def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, st
     available=set(pq.ParquetFile(submissions_parquet).schema.names)
     pcol=first_column(pd.DataFrame(columns=list(available)),["subreddit","source_subreddit","subreddit_name"],"submission subreddit column")
     source=ds.dataset(submissions_parquet, format="parquet")
-    counts=source.to_table(columns=["sample_type",pcol]).to_pandas()
-    counts=counts[counts.sample_type.astype(str).str.lower().eq("submissions")]
+    count_cols=[pcol]+(["sample_type"] if "sample_type" in available else [])
+    counts=source.to_table(columns=count_cols).to_pandas()
+    if "sample_type" in counts: counts=counts[counts.sample_type.astype(str).str.lower().eq("submissions")]
     counts["subreddit_normalized"]=counts[pcol].map(normalize_subreddit)
     eligible=sorted(set(counts.loc[counts.groupby("subreddit_normalized")[pcol].transform("size")>=8,"subreddit_normalized"]) & set(all_names))
     stage1_names=pd.Series(eligible).sample(n=min(limit,len(eligible)),random_state=seed).tolist() if limit else eligible
