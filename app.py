@@ -13,7 +13,7 @@ st.set_page_config(page_title="Subreddit annotation", layout="wide")
 @st.cache_data
 def load_data(path):
     df=pd.read_parquet(path)
-    required={"subreddit","sample_rank","title","selftext"}
+    required={"subreddit","sample_rank","title","selftext","stage1_eligible","stage2_eligible"}
     if not required.issubset(df.columns): raise ValueError(f"Dataset must contain {sorted(required)}")
     return df
 def ordered(names, annotator, stage):
@@ -70,11 +70,9 @@ def main():
     except Exception as exc: st.error(f"Could not load prepared dataset: {exc}"); st.stop()
     annotator=st.sidebar.selectbox("Assigned annotator ID", ANNOTATOR_IDS)
     role=st.sidebar.radio("Workspace", ["Stage 1 annotation","Stage 2 annotation","Exports"])
-    if role=="Stage 1 annotation": annotation_page(df,annotator,1)
+    if role=="Stage 1 annotation": annotation_page(df[df.stage1_eligible],annotator,1)
     elif role=="Stage 2 annotation":
-        stock=db.stage1_stock(DB_PATH, annotator); subset=df[df.subreddit.isin(stock)]
-        if not stock: st.warning("Stage 2 is locked until you have saved at least one Stage 1 stock_market label.")
-        else: annotation_page(subset,annotator,2)
+        annotation_page(df[df.stage2_eligible],annotator,2)
     else:
         st.subheader("Exports")
         st.write("Each annotator exports two files: one Stage 1 file and one Stage 2 file. Raw labels are never overwritten.")
