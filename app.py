@@ -24,7 +24,7 @@ def ordered(names, annotator, stage):
     return sorted(names, key=lambda x: hashlib.sha256(f"{SEED}:{stage}:{annotator}:{x}".encode()).hexdigest())
 def definitions():
     with st.sidebar.expander("Taxonomy definitions (always available)", expanded=False):
-        for k,v in TAXONOMY.items(): st.markdown(f"**{k}** — {v}")
+        for k in sorted(TAXONOMY): st.markdown(f"**{k}** — {TAXONOMY[k]}")
 def annotation_page(df, annotator, stage):
     done_key=f"completed_{stage}_{annotator}"
     if done_key not in st.session_state:
@@ -41,7 +41,7 @@ def annotation_page(df, annotator, stage):
     for _,row in samples.iterrows():
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
-    choices=list(TAXONOMY) if stage==1 else ["serious_investing", "residual"]
+    choices=sorted(TAXONOMY) if stage==1 else sorted(["serious_investing", "residual"])
     with st.form(f"annotation_{stage}_{subreddit}"):
         primary=st.pills("Choose a category *",choices,selection_mode="single")
         confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=None)
