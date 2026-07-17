@@ -34,20 +34,11 @@ def annotation_page(df, annotator, stage):
     for _,row in samples.iterrows():
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
-    choice_key=f"choice_{stage}_{subreddit}"
     choices=list(TAXONOMY) if stage==1 else ["serious_investing", "residual"]
-    st.markdown("**Choose a category**")
-    for start in range(0,len(choices),4):
-        cols=st.columns(min(4,len(choices)-start))
-        for col,category in zip(cols,choices[start:start+4]):
-            with col:
-                if st.button(category, key=f"button_{stage}_{subreddit}_{category}", type="primary" if st.session_state.get(choice_key)==category else "secondary", use_container_width=True):
-                    st.session_state[choice_key]=category
-                    st.rerun()
-    primary=st.session_state.get(choice_key)
-    if primary: st.success(f"Selected: {primary}")
-    confidence=st.radio("Confidence (1 = low, 5 = high) *", [1,2,3,4,5], horizontal=True, index=None, key=f"confidence_{stage}_{subreddit}")
-    submitted=st.button("Save and continue", key=f"save_{stage}_{subreddit}", type="primary")
+    with st.form(f"annotation_{stage}_{subreddit}"):
+        primary=st.pills("Choose a category *",choices,selection_mode="single")
+        confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=None)
+        submitted=st.form_submit_button("Save and continue",type="primary")
     if submitted:
         errors=[]
         if not primary: errors.append("Choose a category.")
