@@ -1,4 +1,4 @@
-"""Create fixed Stage 1 (250) and Stage 2 (100 LLM-stock-market) queues."""
+"""Create a fixed Stage 1 sample and a Stage 2 queue of all LLM stock-market cases."""
 import argparse, re
 from pathlib import Path
 import pandas as pd
@@ -13,7 +13,7 @@ def first_column(df, candidates, label):
     for c in candidates:
         if c in df.columns: return c
     raise ValueError(f"Could not find {label}; tried {candidates}. Columns: {list(df.columns)}")
-def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, stage2_limit=100):
+def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, stage2_limit=0):
     subs=pd.read_csv(subreddit_csv)
     subcol=first_column(subs,["subreddit","name","subreddit_name"],"subreddit column")
     subs["subreddit_normalized"]=subs[subcol].map(normalize_subreddit)
@@ -57,4 +57,4 @@ def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, st
     if short: print("Fewer than eight usable submissions:", short)
     return result,short
 if __name__=="__main__":
-    ap=argparse.ArgumentParser(); ap.add_argument("--subreddits",required=True); ap.add_argument("--submissions",required=True); ap.add_argument("--output",required=True); ap.add_argument("--seed",type=int,default=SEED); ap.add_argument("--limit",type=int,default=250); ap.add_argument("--stage2-limit",type=int,default=100); a=ap.parse_args(); prepare(a.subreddits,a.submissions,a.output,a.seed,a.limit,a.stage2_limit)
+    ap=argparse.ArgumentParser(); ap.add_argument("--subreddits",required=True); ap.add_argument("--submissions",required=True); ap.add_argument("--output",required=True); ap.add_argument("--seed",type=int,default=SEED); ap.add_argument("--limit",type=int,default=250); ap.add_argument("--stage2-limit",type=int,default=0,help="Stage 2 sample size; 0 includes every eligible LLM stock_market subreddit"); a=ap.parse_args(); prepare(a.subreddits,a.submissions,a.output,a.seed,a.limit,a.stage2_limit)
