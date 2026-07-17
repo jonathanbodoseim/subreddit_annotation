@@ -25,6 +25,13 @@ def ordered(names, annotator, stage):
 def definitions():
     with st.sidebar.expander("Taxonomy definitions (always available)", expanded=False):
         for k in sorted(TAXONOMY): st.markdown(f"**{k}** — {TAXONOMY[k]}")
+def stage2_definitions():
+    with st.sidebar.expander("Stage 2 definitions",expanded=True):
+        st.markdown("""
+**General communities:** Broad communities that serve as general entry points for learning about stock investing, analysing securities, and managing portfolios.
+
+**Specialized communities:** Communities centred on active trading, particular securities or instruments, speculative episodes, memes, or entertainment.
+""")
 def move_cursor(key,delta,total):
     st.session_state[key]=max(0,min(total-1,st.session_state.get(key,0)+delta))
 def jump_cursor(cursor_key,jump_key,total):
@@ -95,11 +102,7 @@ def main():
     role=st.sidebar.radio("Workspace", ["Stage 1 annotation","Stage 2 annotation","Exports"])
     if role=="Stage 1 annotation": annotation_page(df[df.stage1_eligible],annotator,1)
     elif role=="Stage 2 annotation":
-        st.markdown("""
-**General communities:** Broad communities that serve as general entry points for learning about stock investing, analysing securities, and managing portfolios.
-
-**Specialized communities:** Communities centred on active trading, particular securities or instruments, speculative episodes, memes, or entertainment.
-""")
+        stage2_definitions()
         annotation_page(df[df.stage2_eligible],annotator,2)
     else:
         st.subheader("Exports")
