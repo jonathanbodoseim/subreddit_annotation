@@ -25,7 +25,8 @@ def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, st
     counts=source.to_table(columns=count_cols).to_pandas()
     if "sample_type" in counts: counts=counts[counts.sample_type.astype(str).str.lower().eq("submissions")]
     counts["subreddit_normalized"]=counts[pcol].map(normalize_subreddit)
-    eligible=sorted(set(counts.loc[counts.groupby("subreddit_normalized")[pcol].transform("size")>=8,"subreddit_normalized"]) & set(all_names))
+    count_by_norm=counts.groupby("subreddit_normalized").size()
+    eligible=sorted(set(count_by_norm[count_by_norm>=8].index) & set(all_names))
     stage1_names=pd.Series(eligible).sample(n=min(limit,len(eligible)),random_state=seed).tolist() if limit else eligible
     stock=set(subs.loc[subs.get("primary",pd.Series(index=subs.index)).astype(str).eq("stock_market"),"subreddit_normalized"]) if "primary" in subs else set()
     stock_eligible=sorted(stock & set(eligible))
