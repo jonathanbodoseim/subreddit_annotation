@@ -19,7 +19,7 @@ def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, st
     subs["subreddit_normalized"]=subs[subcol].map(normalize_subreddit)
     all_names=sorted(set(subs.subreddit_normalized)-{""})
     available=set(pq.ParquetFile(submissions_parquet).schema.names)
-    pcol=first_column(pd.DataFrame(columns=available),["subreddit","source_subreddit","subreddit_name"],"submission subreddit column")
+    pcol=first_column(pd.DataFrame(columns=list(available)),["subreddit","source_subreddit","subreddit_name"],"submission subreddit column")
     source=ds.dataset(submissions_parquet, format="parquet")
     counts=source.to_table(columns=["sample_type",pcol]).to_pandas()
     counts=counts[counts.sample_type.astype(str).str.lower().eq("submissions")]
