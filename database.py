@@ -48,7 +48,7 @@ def init_db(path):
     with connect(path) as c:
         if is_postgres(path):
             for statement in SCHEMA.replace("id INTEGER PRIMARY KEY", "id SERIAL PRIMARY KEY").split(";"):
-                if statement.strip(): c.execute(statement)
+                if statement.strip(): execute(c, statement)
         else: c.executescript(SCHEMA)
 
 def now(): return datetime.now(timezone.utc).isoformat()
