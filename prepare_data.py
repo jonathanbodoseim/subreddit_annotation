@@ -43,10 +43,11 @@ def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250, st
     posts=posts[((~posts.title_clean.str.lower().isin(bad)) | (posts.selftext_clean.str.len()>0)) & ((posts.title_clean.str.len()>0)|(posts.selftext_clean.str.len()>0))]
     idcol=next((c for c in ["id","post_id","name"] if c in posts),None)
     posts=posts.drop_duplicates(idcol if idcol else ["subreddit_normalized","title_clean","selftext_clean"])
-    rows=[]; short=[]
+    rows=[]
+    short=[(n,int(count_by_norm.get(n,0))) for n in all_names if int(count_by_norm.get(n,0))<8]
     for name in sorted(selected):
         group=posts[posts.subreddit_normalized==name]
-        if len(group)<8: short.append((name,len(group))); continue
+        if len(group)<8: continue
         for rank,(_,row) in enumerate(group.sample(n=8,random_state=seed).iterrows(),1):
             rows.append({"subreddit":name,"sample_rank":rank,"post_id":str(row[idcol]) if idcol else "","title":row.title_clean,"selftext":row.selftext_clean,"stage1_eligible":name in stage1_names,"stage2_eligible":name in stage2_names})
     result=pd.DataFrame(rows,columns=["subreddit","sample_rank","post_id","title","selftext","stage1_eligible","stage2_eligible"])
