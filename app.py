@@ -72,6 +72,11 @@ def main():
     role=st.sidebar.radio("Workspace", ["Stage 1 annotation","Stage 2 annotation","Exports"])
     if role=="Stage 1 annotation": annotation_page(df[df.stage1_eligible],annotator,1)
     elif role=="Stage 2 annotation":
+        st.markdown("""
+**Serious investment:** Stock-related communities focused on stock-market investing, investment strategies, stocks, and portfolios.
+
+**Residual:** Stock-related communities focused on single tickers, options, speculation, memes, or entertainment.
+""")
         annotation_page(df[df.stage2_eligible],annotator,2)
     else:
         st.subheader("Exports")
