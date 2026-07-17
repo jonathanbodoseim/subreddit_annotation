@@ -46,10 +46,6 @@ def annotation_page(df, annotator, stage):
     nav1,nav2=st.columns(2)
     nav1.button("← Previous case",disabled=index==0,use_container_width=True,on_click=move_cursor,args=(cursor_key,-1,len(eligible)))
     nav2.button("Next case →",disabled=index==len(eligible)-1,use_container_width=True,on_click=move_cursor,args=(cursor_key,1,len(eligible)))
-    jump_key=f"jump_{stage}_{annotator}"
-    jump_col,button_col=st.columns([4,1])
-    jump_col.slider("Jump backward or forward",-10,10,0,key=jump_key,help="Choose a negative number to move back or a positive number to move ahead.")
-    button_col.button("Move",use_container_width=True,on_click=jump_cursor,args=(cursor_key,jump_key,len(eligible)))
     subreddit=eligible[index]; samples=df[df.subreddit==subreddit].sort_values("sample_rank")
     existing=db.get_annotation(DB_PATH,stage,annotator,subreddit) if subreddit in done else None
     st.subheader(f"r/{subreddit}")
@@ -59,9 +55,13 @@ def annotation_page(df, annotator, stage):
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
     choices=sorted(TAXONOMY) if stage==1 else ["general_communities", "specialized_communities"]
+    legacy_stage2={"serious_investing":"general_communities","residual":"specialized_communities"}
+    default_label=legacy_stage2.get(existing["label"],existing["label"]) if existing and stage==2 else (existing["label"] if existing else None)
+    default_label=default_label if default_label in choices else None
+    default_confidence=existing["confidence"] if existing and existing["confidence"] in [1,2,3,4,5] else None
     with st.form(f"annotation_{stage}_{subreddit}"):
-        primary=st.pills("Choose a category *",choices,selection_mode="single",default=existing["label"] if existing else None)
-        confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=existing["confidence"]-1 if existing else None)
+        primary=st.pills("Choose a category *",choices,selection_mode="single",default=default_label)
+        confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=default_confidence-1 if default_confidence else None)
         submitted=st.form_submit_button("Save and continue",type="primary")
     if submitted:
         errors=[]
@@ -80,6 +80,11 @@ def annotation_page(df, annotator, stage):
                 st.session_state.pop(f"started_{stage}_{subreddit}",None); st.rerun()
             except Exception as exc:
                 log.exception("Could not save annotation"); st.error(f"Could not save this case: {exc}")
+    st.divider()
+    jump_key=f"jump_{stage}_{annotator}"
+    jump_col,button_col=st.columns([4,1])
+    jump_col.slider("Jump backward or forward",-10,10,0,key=jump_key,help="Choose a negative number to move back or a positive number to move ahead.")
+    button_col.button("Move",use_container_width=True,on_click=jump_cursor,args=(cursor_key,jump_key,len(eligible)))
 def main():
     initialize_database(str(DB_PATH)); definitions()
     st.title("Two-stage subreddit annotation")
