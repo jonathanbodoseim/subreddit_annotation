@@ -41,7 +41,7 @@ def annotation_page(df, annotator, stage):
     for _,row in samples.iterrows():
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
-    choices=sorted(TAXONOMY) if stage==1 else sorted(["serious_investing", "residual"])
+    choices=sorted(TAXONOMY) if stage==1 else ["general_communities", "specialized_communities"]
     with st.form(f"annotation_{stage}_{subreddit}"):
         primary=st.pills("Choose a category *",choices,selection_mode="single")
         confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=None)
@@ -72,9 +72,9 @@ def main():
     if role=="Stage 1 annotation": annotation_page(df[df.stage1_eligible],annotator,1)
     elif role=="Stage 2 annotation":
         st.markdown("""
-**Serious investment:** Stock-related communities focused on stock-market investing, investment strategies, stocks, and portfolios.
+**General communities:** Broad communities that serve as general entry points for learning about stock investing, analysing securities, and managing portfolios.
 
-**Residual:** Stock-related communities focused on single tickers, options, speculation, memes, or entertainment.
+**Specialized communities:** Communities centred on active trading, particular securities or instruments, speculative episodes, memes, or entertainment.
 """)
         annotation_page(df[df.stage2_eligible],annotator,2)
     else:
