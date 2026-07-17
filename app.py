@@ -18,8 +18,6 @@ def load_data(path):
     return df
 def ordered(names, annotator, stage):
     return sorted(names, key=lambda x: hashlib.sha256(f"{SEED}:{stage}:{annotator}:{x}".encode()).hexdigest())
-def flags(key):
-    return st.multiselect("Ambiguity flags (optional)", ["unclear topic", "mixed topics", "insufficient evidence", "taxonomy boundary", "low-quality sample"], key=key)
 def definitions():
     with st.sidebar.expander("Taxonomy definitions (always available)", expanded=False):
         for k,v in TAXONOMY.items(): st.markdown(f"**{k}** — {v}")
@@ -36,29 +34,31 @@ def annotation_page(df, annotator, stage):
     for _,row in samples.iterrows():
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
-    with st.form(f"form_{stage}_{subreddit}"):
-        if stage==1:
-            primary=st.selectbox("Primary category *", [""]+list(TAXONOMY), format_func=lambda x: "Select…" if not x else x)
-            second=st.selectbox("Second-choice category *", [""]+list(TAXONOMY), format_func=lambda x: "Select…" if not x else x)
-        else:
-            primary=st.radio("Stage-2 label *", ["", "serious_investing", "residual"], format_func=lambda x:"Select…" if not x else x)
-            second=""
-        confidence=st.radio("Confidence (1 = low, 5 = high) *", [1,2,3,4,5], horizontal=True, index=None)
-        ambiguity=flags(f"flags_{stage}_{subreddit}")
-        rationale=st.text_area("Short rationale (optional)", max_chars=1000)
-        submitted=st.form_submit_button("Save and continue")
+    choice_key=f"choice_{stage}_{subreddit}"
+    choices=list(TAXONOMY) if stage==1 else ["serious_investing", "residual"]
+    st.markdown("**Choose a category**")
+    for start in range(0,len(choices),4):
+        cols=st.columns(min(4,len(choices)-start))
+        for col,category in zip(cols,choices[start:start+4]):
+            with col:
+                if st.button(category, key=f"button_{stage}_{subreddit}_{category}", type="primary" if st.session_state.get(choice_key)==category else "secondary", use_container_width=True):
+                    st.session_state[choice_key]=category
+                    st.rerun()
+    primary=st.session_state.get(choice_key)
+    if primary: st.success(f"Selected: {primary}")
+    confidence=st.radio("Confidence (1 = low, 5 = high) *", [1,2,3,4,5], horizontal=True, index=None, key=f"confidence_{stage}_{subreddit}")
+    submitted=st.button("Save and continue", key=f"save_{stage}_{subreddit}", type="primary")
     if submitted:
         errors=[]
-        if not primary: errors.append("Choose a label.")
-        if stage==1 and (not second or second==primary): errors.append("Choose a distinct second-choice category.")
+        if not primary: errors.append("Choose a category.")
         if confidence is None: errors.append("Choose a confidence score.")
         if errors:
             for e in errors: st.error(e)
         else:
             seconds=max(0,int(time.monotonic()-started)); created=db.now()
             try:
-                if stage==1: db.save_stage1(DB_PATH,(subreddit,annotator,primary,second,confidence,";".join(ambiguity),rationale,seconds,created))
-                else: db.save_stage2(DB_PATH,(subreddit,annotator,primary,confidence,";".join(ambiguity),rationale,seconds,created))
+                if stage==1: db.save_stage1(DB_PATH,(subreddit,annotator,primary,"",confidence,"","",seconds,created))
+                else: db.save_stage2(DB_PATH,(subreddit,annotator,primary,confidence,"","",seconds,created))
                 st.session_state.pop(f"started_{stage}_{subreddit}",None); st.rerun()
             except Exception as exc:
                 log.exception("Could not save annotation"); st.error(f"Could not save this case: {exc}")
