@@ -19,16 +19,28 @@ def prepare(subreddit_csv, submissions_parquet, output, seed=SEED, limit=250):
     subs=pd.read_csv(subreddit_csv)
     subcol=first_column(subs,["subreddit","name","subreddit_name"],"subreddit column")
     names=sorted({normalize_subreddit(x) for x in subs[subcol] if normalize_subreddit(x)})
-    if limit and len(names)>limit:
-        names=pd.Series(names).sample(n=limit, random_state=seed).sort_values().tolist()
     # The source can be very large; avoid materializing unrelated columns.
     available=set(pq.ParquetFile(submissions_parquet).schema.names)
     pcol=next((c for c in ["subreddit","source_subreddit","subreddit_name"] if c in available), None)
     if not pcol: raise ValueError(f"Could not find submission subreddit column; columns: {sorted(available)}")
     wanted=[c for c in ["subreddit","source_subreddit","subreddit_name","sample_type","title","submission_title","selftext","body","text","id","post_id","name"] if c in available]
     source=ds.dataset(submissions_parquet, format="parquet")
+    # When creating the original 250-case exercise, first select from groups
+    # known to have enough submissions. This lightweight pass avoids wasting
+    # the expensive title/text scan on ineligible groups.
+    scan_names=None
+    if limit and len(names)>limit:
+        counts=source.to_table(columns=["sample_type",pcol]).to_pandas()
+        counts=counts[counts.sample_type.astype(str).str.lower().eq("submissions")]
+        eligible=counts.groupby(pcol).size()
+        eligible_raw=[x for x in eligible[eligible>=8].index if normalize_subreddit(x) in set(names)]
+        eligible_norm=sorted({normalize_subreddit(x) for x in eligible_raw})
+        # The source is ordered by subreddit; selecting the first eligible
+        # groups also lets Parquet skip most later row groups during the scan.
+        names=eligible_norm[:limit]
+        scan_names=[x for x in eligible_raw if normalize_subreddit(x) in set(names)]
     predicate=(ds.field("sample_type") == "submissions") if "sample_type" in available else None
-    name_filter=ds.field(pcol).isin(names)
+    name_filter=ds.field(pcol).isin(scan_names if scan_names is not None else names)
     predicate=name_filter if predicate is None else predicate & name_filter
     posts=source.to_table(columns=wanted, filter=predicate).to_pandas()
     pcol=first_column(posts,["subreddit","source_subreddit","subreddit_name"],"submission subreddit column")
