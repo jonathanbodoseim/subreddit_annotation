@@ -22,7 +22,7 @@ SQLite is initialized automatically at `output/annotations.sqlite3`; set `ANNOTA
 
 ## Workflow
 
-Both annotators independently complete Stage 1. An adjudicator selects a final label under Adjudication. Stage 2 then unlocks only adjudicated `stock_market` cases. Raw labels are never overwritten. Use Exports to write CSV files locally.
+Both annotators independently complete Stage 1. Each annotator's Stage 2 queue is the set of subreddits that annotator personally labeled `stock_market`; no adjudication is performed. Stage 2 uses `serious_investing` versus `residual`, with the same eight samples. Use Exports to write exactly two CSV files per annotator: `<annotator>_stage1.csv` and `<annotator>_stage2.csv`.
 
 The preparation script normalizes `subreddit`/`source_subreddit`, removes empty/deleted/removed posts and duplicates, samples exactly eight per eligible subreddit with a fixed seed, and prints the shortfall list.
 It defaults to a deterministic 250-subreddit task (`--limit 0` prepares all names); the limit is applied before the Parquet scan.

@@ -15,5 +15,6 @@ def test_progress_duplicate_and_stage2(tmp_path):
     try: db.save_stage1(p,v); assert False
     except Exception: pass
     db.save_stage1(p,('a','two','stock_market','business',5,'','',4,db.now()))
-    db.save_adjudication(p,'a','stock_market','ok','admin')
-    assert db.adjudicated_stock(p)=={'a'}
+    assert db.stage1_stock(p,'one')=={'a'}
+    db.export_annotator_csv(p,tmp_path,'one')
+    assert (tmp_path/'one_stage1.csv').exists() and (tmp_path/'one_stage2.csv').exists()

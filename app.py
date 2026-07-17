@@ -41,7 +41,7 @@ def annotation_page(df, annotator, stage):
             primary=st.selectbox("Primary category *", [""]+list(TAXONOMY), format_func=lambda x: "Select…" if not x else x)
             second=st.selectbox("Second-choice category *", [""]+list(TAXONOMY), format_func=lambda x: "Select…" if not x else x)
         else:
-            primary=st.radio("Stage-2 label *", ["", "stock_investing_core", "other_stock_market"], format_func=lambda x:"Select…" if not x else x)
+            primary=st.radio("Stage-2 label *", ["", "serious_investing", "residual"], format_func=lambda x:"Select…" if not x else x)
             second=""
         confidence=st.radio("Confidence (1 = low, 5 = high) *", [1,2,3,4,5], horizontal=True, index=None)
         ambiguity=flags(f"flags_{stage}_{subreddit}")
@@ -62,20 +62,6 @@ def annotation_page(df, annotator, stage):
                 st.session_state.pop(f"started_{stage}_{subreddit}",None); st.rerun()
             except Exception as exc:
                 log.exception("Could not save annotation"); st.error(f"Could not save this case: {exc}")
-def adjudication_page(annotator):
-    with db.connect(DB_PATH) as c:
-        rows=c.execute("SELECT subreddit, GROUP_CONCAT(annotator_id||': '||primary_category, ' | ') labels FROM stage1_annotations GROUP BY subreddit HAVING COUNT(*) >= 2 ORDER BY subreddit").fetchall()
-    st.subheader("Stage 1 adjudication")
-    st.info("Only cases with two independent Stage 1 labels appear here. Adjudicated labels are stored separately from raw labels.")
-    for row in rows:
-        with st.expander(f"r/{row['subreddit']} — {row['labels']}"):
-            with st.form(f"adj_{row['subreddit']}"):
-                label=st.selectbox("Adjudicated label", [""]+list(TAXONOMY), key=f"adjlabel_{row['subreddit']}")
-                rationale=st.text_area("Adjudication rationale", key=f"adjrat_{row['subreddit']}")
-                if st.form_submit_button("Save adjudication"):
-                    if not label: st.error("Choose a label.")
-                    else:
-                        db.save_adjudication(DB_PATH,row['subreddit'],label,rationale,annotator); st.success("Saved."); st.rerun()
 def main():
     db.init_db(DB_PATH); definitions()
     st.title("Two-stage subreddit annotation")
@@ -83,15 +69,14 @@ def main():
     try: df=load_data(str(DATASET_PATH))
     except Exception as exc: st.error(f"Could not load prepared dataset: {exc}"); st.stop()
     annotator=st.sidebar.selectbox("Assigned annotator ID", ANNOTATOR_IDS)
-    role=st.sidebar.radio("Workspace", ["Stage 1 annotation","Adjudication","Stage 2 annotation","Exports"])
+    role=st.sidebar.radio("Workspace", ["Stage 1 annotation","Stage 2 annotation","Exports"])
     if role=="Stage 1 annotation": annotation_page(df,annotator,1)
-    elif role=="Adjudication": adjudication_page(annotator)
     elif role=="Stage 2 annotation":
-        stock=db.adjudicated_stock(DB_PATH); subset=df[df.subreddit.isin(stock)]
-        if not stock: st.warning("Stage 2 is locked until adjudicated stock_market labels are available.")
+        stock=db.stage1_stock(DB_PATH, annotator); subset=df[df.subreddit.isin(stock)]
+        if not stock: st.warning("Stage 2 is locked until you have saved at least one Stage 1 stock_market label.")
         else: annotation_page(subset,annotator,2)
     else:
         st.subheader("Exports")
-        st.write("Exports include raw independent annotations, adjudications, and Stage 2 labels.")
-        if st.button("Generate CSV exports"): db.export_csv(DB_PATH,OUTPUT_DIR); st.success(f"Saved CSV files to {OUTPUT_DIR}")
+        st.write("Each annotator exports two files: one Stage 1 file and one Stage 2 file. Raw labels are never overwritten.")
+        if st.button("Generate my two CSV exports"): db.export_annotator_csv(DB_PATH,OUTPUT_DIR,annotator); st.success(f"Saved {annotator}_stage1.csv and {annotator}_stage2.csv to {OUTPUT_DIR}")
 if __name__=="__main__": main()
