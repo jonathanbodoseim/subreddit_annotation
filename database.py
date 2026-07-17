@@ -87,9 +87,17 @@ def completed(path, stage, annotator):
     table="stage1_annotations" if stage==1 else "stage2_annotations"
     with connect(path) as c: return {r[0] for r in execute(c,f"SELECT subreddit FROM {table} WHERE annotator_id=?",(annotator,))}
 def save_stage1(path, values):
-    with connect(path) as c: execute(c,"INSERT INTO stage1_annotations(subreddit,annotator_id,primary_category,second_choice,confidence,ambiguity_flags,rationale,time_spent_seconds,created_at) VALUES(?,?,?,?,?,?,?,?,?)",values)
+    with connect(path) as c: execute(c,"""INSERT INTO stage1_annotations(subreddit,annotator_id,primary_category,second_choice,confidence,ambiguity_flags,rationale,time_spent_seconds,created_at) VALUES(?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(subreddit,annotator_id) DO UPDATE SET primary_category=excluded.primary_category,second_choice=excluded.second_choice,confidence=excluded.confidence,ambiguity_flags=excluded.ambiguity_flags,rationale=excluded.rationale,time_spent_seconds=excluded.time_spent_seconds,created_at=excluded.created_at""",values)
 def save_stage2(path, values):
-    with connect(path) as c: execute(c,"INSERT INTO stage2_annotations(subreddit,annotator_id,label,confidence,ambiguity_flags,rationale,time_spent_seconds,created_at) VALUES(?,?,?,?,?,?,?,?)",values)
+    with connect(path) as c: execute(c,"""INSERT INTO stage2_annotations(subreddit,annotator_id,label,confidence,ambiguity_flags,rationale,time_spent_seconds,created_at) VALUES(?,?,?,?,?,?,?,?)
+      ON CONFLICT(subreddit,annotator_id) DO UPDATE SET label=excluded.label,confidence=excluded.confidence,ambiguity_flags=excluded.ambiguity_flags,rationale=excluded.rationale,time_spent_seconds=excluded.time_spent_seconds,created_at=excluded.created_at""",values)
+def get_annotation(path, stage, annotator, subreddit):
+    table="stage1_annotations" if stage==1 else "stage2_annotations"
+    label="primary_category" if stage==1 else "label"
+    with connect(path) as c:
+        row=execute(c,f"SELECT {label},confidence FROM {table} WHERE annotator_id=? AND subreddit=?",(annotator,subreddit)).fetchone()
+    return {"label":row[0],"confidence":row[1]} if row else None
 def stage1_stock(path, annotator):
     with connect(path) as c: return {r[0] for r in execute(c,"SELECT subreddit FROM stage1_annotations WHERE annotator_id=? AND primary_category='stock_market'",(annotator,))}
 def export_annotator_csv(path, outdir, annotator):

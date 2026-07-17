@@ -25,26 +25,43 @@ def ordered(names, annotator, stage):
 def definitions():
     with st.sidebar.expander("Taxonomy definitions (always available)", expanded=False):
         for k in sorted(TAXONOMY): st.markdown(f"**{k}** — {TAXONOMY[k]}")
+def move_cursor(key,delta,total):
+    st.session_state[key]=max(0,min(total-1,st.session_state.get(key,0)+delta))
+def jump_cursor(cursor_key,jump_key,total):
+    move_cursor(cursor_key,st.session_state.get(jump_key,0),total)
+    st.session_state[jump_key]=0
 def annotation_page(df, annotator, stage):
     done_key=f"completed_{stage}_{annotator}"
     if done_key not in st.session_state:
         st.session_state[done_key]=db.completed(DB_PATH,stage,annotator)
-    done=st.session_state[done_key]
     eligible=ordered(df.subreddit.unique().tolist(),annotator,stage)
-    remaining=[x for x in eligible if x not in done]
-    st.progress(len(done)/len(eligible) if eligible else 1.0, text=f"Stage {stage}: {len(done)} / {len(eligible)} completed")
-    if not remaining: st.success("All assigned cases are complete."); return
-    subreddit=remaining[0]; samples=df[df.subreddit==subreddit].sort_values("sample_rank")
+    if not eligible: st.success("No cases are assigned to this stage."); return
+    done=st.session_state[done_key]
+    completed_count=len(set(eligible)&done)
+    st.progress(completed_count/len(eligible),text=f"Stage {stage}: {completed_count} / {len(eligible)} completed")
+    cursor_key=f"cursor_{stage}_{annotator}"
+    if cursor_key not in st.session_state:
+        st.session_state[cursor_key]=next((i for i,name in enumerate(eligible) if name not in done),len(eligible)-1)
+    index=max(0,min(len(eligible)-1,st.session_state[cursor_key])); st.session_state[cursor_key]=index
+    nav1,nav2=st.columns(2)
+    nav1.button("← Previous case",disabled=index==0,use_container_width=True,on_click=move_cursor,args=(cursor_key,-1,len(eligible)))
+    nav2.button("Next case →",disabled=index==len(eligible)-1,use_container_width=True,on_click=move_cursor,args=(cursor_key,1,len(eligible)))
+    jump_key=f"jump_{stage}_{annotator}"
+    jump_col,button_col=st.columns([4,1])
+    jump_col.slider("Jump backward or forward",-10,10,0,key=jump_key,help="Choose a negative number to move back or a positive number to move ahead.")
+    button_col.button("Move",use_container_width=True,on_click=jump_cursor,args=(cursor_key,jump_key,len(eligible)))
+    subreddit=eligible[index]; samples=df[df.subreddit==subreddit].sort_values("sample_rank")
+    existing=db.get_annotation(DB_PATH,stage,annotator,subreddit) if subreddit in done else None
     st.subheader(f"r/{subreddit}")
-    st.caption(f"Case {len(done)+1} of {len(eligible)} · timer starts when this case is shown")
+    st.caption(f"Case {index+1} of {len(eligible)} · {'saved — you can update it' if existing else 'not yet saved'}")
     started=st.session_state.setdefault(f"started_{stage}_{subreddit}", time.monotonic())
     for _,row in samples.iterrows():
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
     choices=sorted(TAXONOMY) if stage==1 else ["general_communities", "specialized_communities"]
     with st.form(f"annotation_{stage}_{subreddit}"):
-        primary=st.pills("Choose a category *",choices,selection_mode="single")
-        confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=None)
+        primary=st.pills("Choose a category *",choices,selection_mode="single",default=existing["label"] if existing else None)
+        confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=existing["confidence"]-1 if existing else None)
         submitted=st.form_submit_button("Save and continue",type="primary")
     if submitted:
         errors=[]
@@ -58,6 +75,8 @@ def annotation_page(df, annotator, stage):
                 if stage==1: db.save_stage1(DB_PATH,(subreddit,annotator,primary,"",confidence,"","",seconds,created))
                 else: db.save_stage2(DB_PATH,(subreddit,annotator,primary,confidence,"","",seconds,created))
                 done.add(subreddit)
+                next_index=next((i for i in range(index+1,len(eligible)) if eligible[i] not in done),min(index+1,len(eligible)-1))
+                st.session_state[cursor_key]=next_index
                 st.session_state.pop(f"started_{stage}_{subreddit}",None); st.rerun()
             except Exception as exc:
                 log.exception("Could not save annotation"); st.error(f"Could not save this case: {exc}")
