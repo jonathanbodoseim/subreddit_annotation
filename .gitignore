@@ -5,6 +5,7 @@ __pycache__/
 data/*
 output/*
 !data/.gitkeep
+!data/clean_samples.parquet
 !output/.gitkeep
 *.sqlite3
 .env
