@@ -1,6 +1,19 @@
 import pandas as pd
 from prepare_data import prepare
 import database as db
+
+class FakePostgresConnection:
+    __module__="psycopg2.extensions"
+    def __init__(self): self.cursor_instance=FakeCursor()
+    def cursor(self): return self.cursor_instance
+class FakeCursor:
+    def execute(self,query,params): self.called=(query,params)
+
+def test_postgres_execute_uses_cursor():
+    connection=FakePostgresConnection()
+    cursor=db.execute(connection,"SELECT ?",("value",))
+    assert cursor is connection.cursor_instance
+    assert cursor.called==("SELECT %s",("value",))
 def test_sampling_and_short_report(tmp_path):
     csv=tmp_path/'subs.csv'; parquet=tmp_path/'posts.parquet'; out=tmp_path/'clean.parquet'
     pd.DataFrame({'subreddit':['r/a','b','c']}).to_csv(csv,index=False)

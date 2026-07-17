@@ -31,7 +31,11 @@ def connect(path):
     return con
 
 def execute(c, query, params=()):
-    return c.execute(query.replace("?", "%s") if c.__class__.__module__.startswith("psycopg2") else query, params)
+    if c.__class__.__module__.startswith("psycopg2"):
+        cursor=c.cursor()
+        cursor.execute(query.replace("?", "%s"),params)
+        return cursor
+    return c.execute(query,params)
 
 SCHEMA='''CREATE TABLE IF NOT EXISTS stage1_annotations (
  id INTEGER PRIMARY KEY, subreddit TEXT NOT NULL, annotator_id TEXT NOT NULL,
