@@ -16,13 +16,20 @@ def load_data(path):
     required={"subreddit","sample_rank","title","selftext","stage1_eligible","stage2_eligible"}
     if not required.issubset(df.columns): raise ValueError(f"Dataset must contain {sorted(required)}")
     return df
+@st.cache_resource
+def initialize_database(path):
+    db.init_db(path)
+    return True
 def ordered(names, annotator, stage):
     return sorted(names, key=lambda x: hashlib.sha256(f"{SEED}:{stage}:{annotator}:{x}".encode()).hexdigest())
 def definitions():
     with st.sidebar.expander("Taxonomy definitions (always available)", expanded=False):
         for k,v in TAXONOMY.items(): st.markdown(f"**{k}** — {v}")
 def annotation_page(df, annotator, stage):
-    done=db.completed(DB_PATH,stage,annotator)
+    done_key=f"completed_{stage}_{annotator}"
+    if done_key not in st.session_state:
+        st.session_state[done_key]=db.completed(DB_PATH,stage,annotator)
+    done=st.session_state[done_key]
     eligible=ordered(df.subreddit.unique().tolist(),annotator,stage)
     remaining=[x for x in eligible if x not in done]
     st.progress(len(done)/len(eligible) if eligible else 1.0, text=f"Stage {stage}: {len(done)} / {len(eligible)} completed")
@@ -50,11 +57,12 @@ def annotation_page(df, annotator, stage):
             try:
                 if stage==1: db.save_stage1(DB_PATH,(subreddit,annotator,primary,"",confidence,"","",seconds,created))
                 else: db.save_stage2(DB_PATH,(subreddit,annotator,primary,confidence,"","",seconds,created))
+                done.add(subreddit)
                 st.session_state.pop(f"started_{stage}_{subreddit}",None); st.rerun()
             except Exception as exc:
                 log.exception("Could not save annotation"); st.error(f"Could not save this case: {exc}")
 def main():
-    db.init_db(DB_PATH); definitions()
+    initialize_database(str(DB_PATH)); definitions()
     st.title("Two-stage subreddit annotation")
     if not DATASET_PATH.exists(): st.error(f"Prepared dataset not found: {DATASET_PATH}"); st.stop()
     try: df=load_data(str(DATASET_PATH))

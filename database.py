@@ -1,10 +1,13 @@
 """Small storage adapter: SQLite locally, PostgreSQL/Supabase in the cloud."""
-import logging, os, sqlite3
+import logging, os, sqlite3, threading
+from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime, timezone
 import pandas as pd
 
 log = logging.getLogger(__name__)
+_pools={}
+_pool_lock=threading.Lock()
 
 def database_url(path=None):
     if path and str(path).startswith(("postgresql://", "postgres://")): return str(path)
@@ -18,17 +21,41 @@ def database_url(path=None):
 
 def is_postgres(path=None): return bool(database_url(path))
 
+def _postgres_pool(url):
+    with _pool_lock:
+        if url not in _pools:
+            from psycopg2.pool import ThreadedConnectionPool
+            _pools[url]=ThreadedConnectionPool(1,5,url,sslmode="require",connect_timeout=10)
+        return _pools[url]
+
+@contextmanager
 def connect(path):
     url=database_url(path)
     if url:
-        import psycopg2
-        return psycopg2.connect(url, sslmode="require")
+        pool=_postgres_pool(url)
+        con=pool.getconn()
+        try:
+            yield con
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            pool.putconn(con)
+        return
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     con=sqlite3.connect(path, timeout=30, check_same_thread=False)
     con.row_factory=sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")
-    return con
+    try:
+        yield con
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
 
 def execute(c, query, params=()):
     if c.__class__.__module__.startswith("psycopg2"):
