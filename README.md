@@ -36,3 +36,13 @@ pytest -q
 For deployment, use a shared PostgreSQL/Supabase implementation and persistent secrets/environment variables; do not use ephemeral local SQLite storage. Streamlit Community Cloud requires an external database for simultaneous annotators.
 
 The supplied files use `subreddit` in the CSV and `subreddit`, `title`, `selftext`, and `id` in the Parquet. The script also accepts common aliases and reports the detected schema error when none match.
+
+## Cloud database
+
+Local runs use SQLite. For Streamlit Community Cloud, create a Supabase PostgreSQL project and add its connection string in the app Secrets as:
+
+```toml
+DATABASE_URL = "postgresql://..."
+```
+
+The app automatically selects PostgreSQL when `DATABASE_URL` is present and initializes its tables on first start. Never commit the connection string. Keep regular CSV exports and database backups.
