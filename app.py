@@ -1,5 +1,6 @@
 import logging, time, hashlib
 from pathlib import Path
+from urllib.parse import quote
 import pandas as pd
 import streamlit as st
 from config import DATASET_PATH, DB_PATH, OUTPUT_DIR, ANNOTATOR_IDS, SEED
@@ -55,7 +56,8 @@ def annotation_page(df, annotator, stage):
     nav2.button("Next case →",disabled=index==len(eligible)-1,use_container_width=True,on_click=move_cursor,args=(cursor_key,1,len(eligible)))
     subreddit=eligible[index]; samples=df[df.subreddit==subreddit].sort_values("sample_rank")
     existing=db.get_annotation(DB_PATH,stage,annotator,subreddit) if subreddit in done else None
-    st.subheader(f"r/{subreddit}")
+    reddit_url=f"https://www.reddit.com/r/{quote(subreddit,safe='')}/"
+    st.markdown(f"## [r/{subreddit}]({reddit_url})")
     st.caption(f"Case {index+1} of {len(eligible)} · {'saved — you can update it' if existing else 'not yet saved'}")
     started=st.session_state.setdefault(f"started_{stage}_{subreddit}", time.monotonic())
     for _,row in samples.iterrows():
