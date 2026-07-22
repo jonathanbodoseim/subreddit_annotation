@@ -25,7 +25,10 @@ def _postgres_pool(url):
     with _pool_lock:
         if url not in _pools:
             from psycopg2.pool import ThreadedConnectionPool
-            _pools[url]=ThreadedConnectionPool(1,5,url,sslmode="require",connect_timeout=10)
+            _pools[url]=ThreadedConnectionPool(
+                1,5,url,sslmode="require",connect_timeout=10,
+                keepalives=1,keepalives_idle=30,keepalives_interval=10,keepalives_count=3,
+            )
         return _pools[url]
 
 @contextmanager
@@ -78,6 +81,8 @@ CREATE TABLE IF NOT EXISTS stage2_annotations (
 def init_db(path):
     with connect(path) as c:
         if is_postgres(path):
+            execute(c,"SET LOCAL statement_timeout = '10s'")
+            execute(c,"SET LOCAL lock_timeout = '5s'")
             for statement in SCHEMA.replace("id INTEGER PRIMARY KEY", "id SERIAL PRIMARY KEY").split(";"):
                 if statement.strip(): execute(c, statement)
         else: c.executescript(SCHEMA)

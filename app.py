@@ -93,10 +93,21 @@ def annotation_page(df, annotator, stage):
     jump_col.slider("Jump backward or forward",-10,10,0,key=jump_key,help="Choose a negative number to move back or a positive number to move ahead.")
     button_col.button("Move",use_container_width=True,on_click=jump_cursor,args=(cursor_key,jump_key,len(eligible)))
 def main():
-    initialize_database(str(DB_PATH)); definitions()
     st.title("Two-stage subreddit annotation")
+    log.info("Starting application session")
+    try:
+        log.info("Initializing database")
+        initialize_database(str(DB_PATH))
+        log.info("Database initialization complete")
+    except Exception as exc:
+        log.exception("Database initialization failed")
+        st.error("The annotation database could not be reached. Please check the Streamlit app logs and Supabase project status.")
+        st.stop()
+    definitions()
     if not DATASET_PATH.exists(): st.error(f"Prepared dataset not found: {DATASET_PATH}"); st.stop()
-    try: df=load_data(str(DATASET_PATH))
+    try:
+        df=load_data(str(DATASET_PATH))
+        log.info("Annotation dataset loaded")
     except Exception as exc: st.error(f"Could not load prepared dataset: {exc}"); st.stop()
     annotator=st.sidebar.selectbox("Assigned annotator ID", ANNOTATOR_IDS)
     role=st.sidebar.radio("Workspace", ["Stage 1 annotation","Stage 2 annotation","Exports"])
