@@ -1,3 +1,4 @@
+import sqlite3
 import pandas as pd
 from prepare_data import prepare
 import database as db
@@ -32,3 +33,16 @@ def test_progress_update_and_stage2(tmp_path):
     assert db.stage1_stock(p,'two')=={'a'}
     db.export_annotator_csv(p,tmp_path,'one')
     assert (tmp_path/'one_stage1.csv').exists() and (tmp_path/'one_stage2.csv').exists()
+
+def test_stage2_four_category_migration_archives_and_resets_once(tmp_path):
+    p=tmp_path/'migration.sqlite3'; db.init_db(p)
+    with sqlite3.connect(p) as c:
+        c.execute("DELETE FROM app_migrations WHERE name=?",(db.STAGE2_FOUR_CATEGORY_MIGRATION,))
+    db.save_stage2(p,('a','one','residual',3,'','',2,db.now()))
+    db.init_db(p)
+    assert db.completed(p,2,'one')==set()
+    with sqlite3.connect(p) as c:
+        assert c.execute("SELECT label FROM stage2_annotations_archive_20260722").fetchall()==[('residual',)]
+    db.init_db(p)
+    with sqlite3.connect(p) as c:
+        assert c.execute("SELECT COUNT(*) FROM stage2_annotations_archive_20260722").fetchone()[0]==1

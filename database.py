@@ -78,14 +78,29 @@ CREATE TABLE IF NOT EXISTS stage2_annotations (
  rationale TEXT, time_spent_seconds INTEGER NOT NULL, created_at TEXT NOT NULL,
  UNIQUE(subreddit, annotator_id));'''
 
+STAGE2_FOUR_CATEGORY_MIGRATION="stage2_four_categories_20260722"
+
+def apply_migrations(c,postgres):
+    execute(c,"CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+    if postgres:
+        execute(c,"SELECT pg_advisory_xact_lock(22072026)")
+    applied=execute(c,"SELECT 1 FROM app_migrations WHERE name=?",(STAGE2_FOUR_CATEGORY_MIGRATION,)).fetchone()
+    if applied: return
+    execute(c,"CREATE TABLE IF NOT EXISTS stage2_annotations_archive_20260722 AS SELECT * FROM stage2_annotations WHERE 1=0")
+    execute(c,"INSERT INTO stage2_annotations_archive_20260722 SELECT * FROM stage2_annotations")
+    execute(c,"DELETE FROM stage2_annotations")
+    execute(c,"INSERT INTO app_migrations(name,applied_at) VALUES(?,?)",(STAGE2_FOUR_CATEGORY_MIGRATION,now()))
+
 def init_db(path):
     with connect(path) as c:
-        if is_postgres(path):
+        postgres=is_postgres(path)
+        if postgres:
             execute(c,"SET LOCAL statement_timeout = '10s'")
             execute(c,"SET LOCAL lock_timeout = '5s'")
             for statement in SCHEMA.replace("id INTEGER PRIMARY KEY", "id SERIAL PRIMARY KEY").split(";"):
                 if statement.strip(): execute(c, statement)
         else: c.executescript(SCHEMA)
+        apply_migrations(c,postgres)
 
 def now(): return datetime.now(timezone.utc).isoformat()
 def completed(path, stage, annotator):

@@ -33,3 +33,26 @@ TAXONOMY = {
     "general_advice_and_discussion": "General discussion, question-and-answer communities, AskReddit-style forums, advice, AMAs, support, and broad conversation.",
     "other_unknown": "Cannot be confidently assigned to any substantive category.",
 }
+
+STAGE2_TAXONOMY = {
+    "general_investing_and_implementation": {
+        "title": "General investing and implementation",
+        "core_purpose": "Broad participation in equity markets and the practical implementation of investing.",
+        "typical_content": "Diversification, ETFs, mutual funds, valuation, dividends, portfolio allocation, retirement investing, broker choice, account opening, transfers and account rules.",
+    },
+    "active_trading_and_derivatives": {
+        "title": "Active trading and derivatives",
+        "core_purpose": "Short-horizon trading and tactical position management.",
+        "typical_content": "Day trading, swing trading, technical analysis, options, futures, leverage, order execution and trading strategies.",
+    },
+    "single_securities_and_investment_themes": {
+        "title": "Single securities and investment themes",
+        "core_purpose": "Discussion organized around a particular company, security, sector or product theme.",
+        "typical_content": "Tesla, Nvidia, Palantir, cannabis stocks, space stocks, REIT themes, dividend ETFs, specific fund families.",
+    },
+    "meme_squeeze_and_highly_speculative_communities": {
+        "title": "Meme, squeeze and highly speculative communities",
+        "core_purpose": "Collective speculation, viral narratives and event-driven trading.",
+        "typical_content": "WSB-style discussion, GME/AMC communities, short squeezes, penny-stock promotion, ‘apes,’ YOLO trades and coordinated speculative narratives.",
+    },
+}

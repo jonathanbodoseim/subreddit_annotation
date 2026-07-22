@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from config import DATASET_PATH, DB_PATH, OUTPUT_DIR, ANNOTATOR_IDS, SEED
-from taxonomy import TAXONOMY
+from taxonomy import TAXONOMY, STAGE2_TAXONOMY
 import database as db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -27,18 +27,18 @@ def definitions():
         for k in sorted(TAXONOMY): st.markdown(f"**{k}** — {TAXONOMY[k]}")
 def stage2_definitions():
     with st.sidebar.expander("Stage 2 definitions",expanded=True):
-        st.markdown("""
-**General communities:** Broad communities that serve as general entry points for learning about stock investing, analysing securities, and managing portfolios.
-
-**Specialized communities:** Communities centred on active trading, particular securities or instruments, speculative episodes, memes, or entertainment.
-""")
+        for number,details in enumerate(STAGE2_TAXONOMY.values(),1):
+            st.markdown(f"**{number}. {details['title']}**")
+            st.markdown(f"**Core purpose:** {details['core_purpose']}")
+            st.markdown(f"**Typical content:** {details['typical_content']}")
 def move_cursor(key,delta,total):
     st.session_state[key]=max(0,min(total-1,st.session_state.get(key,0)+delta))
 def jump_cursor(cursor_key,jump_key,total):
     move_cursor(cursor_key,st.session_state.get(jump_key,0),total)
     st.session_state[jump_key]=0
 def annotation_page(df, annotator, stage):
-    done_key=f"completed_{stage}_{annotator}"
+    version="four_categories" if stage==2 else "taxonomy_32"
+    done_key=f"completed_{version}_{annotator}"
     if done_key not in st.session_state:
         st.session_state[done_key]=db.completed(DB_PATH,stage,annotator)
     eligible=ordered(df.subreddit.unique().tolist(),annotator,stage)
@@ -46,7 +46,7 @@ def annotation_page(df, annotator, stage):
     done=st.session_state[done_key]
     completed_count=len(set(eligible)&done)
     st.progress(completed_count/len(eligible),text=f"Stage {stage}: {completed_count} / {len(eligible)} completed")
-    cursor_key=f"cursor_{stage}_{annotator}"
+    cursor_key=f"cursor_{version}_{annotator}"
     if cursor_key not in st.session_state:
         st.session_state[cursor_key]=next((i for i,name in enumerate(eligible) if name not in done),len(eligible)-1)
     index=max(0,min(len(eligible)-1,st.session_state[cursor_key])); st.session_state[cursor_key]=index
@@ -61,13 +61,12 @@ def annotation_page(df, annotator, stage):
     for _,row in samples.iterrows():
         with st.expander(f"{int(row.sample_rank)}. {row.title or '(no title)'}"):
             st.write(row.selftext or "(no self-text)")
-    choices=sorted(TAXONOMY) if stage==1 else ["general_communities", "specialized_communities"]
-    legacy_stage2={"serious_investing":"general_communities","residual":"specialized_communities"}
-    default_label=legacy_stage2.get(existing["label"],existing["label"]) if existing and stage==2 else (existing["label"] if existing else None)
+    choices=sorted(TAXONOMY) if stage==1 else list(STAGE2_TAXONOMY)
+    default_label=existing["label"] if existing else None
     default_label=default_label if default_label in choices else None
     default_confidence=existing["confidence"] if existing and existing["confidence"] in [1,2,3,4,5] else None
-    with st.form(f"annotation_{stage}_{subreddit}"):
-        primary=st.pills("Choose a category *",choices,selection_mode="single",default=default_label)
+    with st.form(f"annotation_{version}_{subreddit}"):
+        primary=st.pills("Choose a category *",choices,selection_mode="single",default=default_label,format_func=(lambda value: STAGE2_TAXONOMY[value]["title"]) if stage==2 else None)
         confidence=st.radio("Confidence (1 = low, 5 = high) *",[1,2,3,4,5],horizontal=True,index=default_confidence-1 if default_confidence else None)
         submitted=st.form_submit_button("Save and continue",type="primary")
     if submitted:
@@ -88,7 +87,7 @@ def annotation_page(df, annotator, stage):
             except Exception as exc:
                 log.exception("Could not save annotation"); st.error(f"Could not save this case: {exc}")
     st.divider()
-    jump_key=f"jump_{stage}_{annotator}"
+    jump_key=f"jump_{version}_{annotator}"
     jump_col,button_col=st.columns([4,1])
     jump_col.slider("Jump backward or forward",-10,10,0,key=jump_key,help="Choose a negative number to move back or a positive number to move ahead.")
     button_col.button("Move",use_container_width=True,on_click=jump_cursor,args=(cursor_key,jump_key,len(eligible)))

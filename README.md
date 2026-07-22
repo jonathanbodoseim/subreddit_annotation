@@ -22,7 +22,7 @@ SQLite is initialized automatically at `output/annotations.sqlite3`; set `ANNOTA
 
 ## Workflow
 
-Both annotators independently complete the same fixed random Stage 1 sample of 250 eligible subreddits. Stage 2 contains every eligible subreddit whose LLM `primary` label in the taxonomy CSV is `stock_market`; it does not depend on either annotator's Stage 1 choices. Stage 2 uses `general_communities` versus `specialized_communities`, with the same eight sampled submissions. Use Exports to write exactly two CSV files per annotator: `<annotator>_stage1.csv` and `<annotator>_stage2.csv`.
+Both annotators independently complete the same fixed random Stage 1 sample of 250 eligible subreddits. Stage 2 contains every eligible subreddit whose LLM `primary` label in the taxonomy CSV is `stock_market`; it does not depend on either annotator's Stage 1 choices. Stage 2 uses four categories: general investing and implementation; active trading and derivatives; single securities and investment themes; and meme, squeeze and highly speculative communities. Use Exports to write exactly two CSV files per annotator: `<annotator>_stage1.csv` and `<annotator>_stage2.csv`.
 
 The preparation script normalizes `subreddit`/`source_subreddit`, removes empty/deleted/removed posts and duplicates, samples exactly eight per eligible subreddit with a fixed seed, and prints the shortfall list.
 It defaults to a deterministic 250-subreddit task (`--limit 0` prepares all names); the limit is applied before the Parquet scan.
